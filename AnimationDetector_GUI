@@ -1,0 +1,214 @@
+-- AnimationDetector_GUI.lua  (StarterPlayerScripts)
+
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player     = Players.LocalPlayer
+local playerGui  = player:WaitForChild("PlayerGui")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name           = "AnimViewer"
+screenGui.ResetOnSpawn   = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent         = playerGui
+
+-- Main frame
+local frame = Instance.new("Frame")
+frame.Name             = "MainFrame"
+frame.Size             = UDim2.new(0, 300, 0, 220)
+frame.Position         = UDim2.new(0, 10, 0, 10)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel  = 1
+frame.BorderColor3     = Color3.fromRGB(50, 50, 50)
+frame.Active           = true
+frame.Draggable        = true
+frame.Parent           = screenGui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Size             = UDim2.new(1, 0, 0, 24)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleBar.BorderSizePixel  = 0
+titleBar.Parent           = frame
+
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 4)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size                   = UDim2.new(1, -8, 1, 0)
+titleLabel.Position               = UDim2.new(0, 8, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text                   = "Animation Visualizer"
+titleLabel.TextColor3             = Color3.fromRGB(200, 200, 200)
+titleLabel.TextSize               = 13
+titleLabel.Font                   = Enum.Font.Code
+titleLabel.TextXAlignment         = Enum.TextXAlignment.Left
+titleLabel.Parent                 = titleBar
+
+-- Current animation ID label
+local currentIdLabel = Instance.new("TextLabel")
+currentIdLabel.Name                   = "CurrentId"
+currentIdLabel.Size                   = UDim2.new(1, -16, 0, 18)
+currentIdLabel.Position               = UDim2.new(0, 8, 0, 30)
+currentIdLabel.BackgroundTransparency = 1
+currentIdLabel.Text                   = "rbxassetid://--"
+currentIdLabel.TextColor3             = Color3.fromRGB(140, 140, 140)
+currentIdLabel.TextSize               = 11
+currentIdLabel.Font                   = Enum.Font.Code
+currentIdLabel.TextXAlignment         = Enum.TextXAlignment.Center
+currentIdLabel.TextTruncate           = Enum.TextTruncate.AtEnd
+currentIdLabel.Parent                 = frame
+
+-- Scroll frame (animation list)
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size                 = UDim2.new(1, -16, 0, 130)
+scrollFrame.Position             = UDim2.new(0, 8, 0, 54)
+scrollFrame.BackgroundColor3     = Color3.fromRGB(12, 12, 12)
+scrollFrame.BorderColor3         = Color3.fromRGB(40, 40, 40)
+scrollFrame.BorderSizePixel      = 1
+scrollFrame.ScrollBarThickness   = 4
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+scrollFrame.CanvasSize           = UDim2.new(0, 0, 0, 0)
+scrollFrame.AutomaticCanvasSize  = Enum.AutomaticSize.Y
+scrollFrame.Parent               = frame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding   = UDim.new(0, 2)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent    = scrollFrame
+
+-- Progress bar
+local progressBG = Instance.new("Frame")
+progressBG.Size             = UDim2.new(1, -16, 0, 22)
+progressBG.Position         = UDim2.new(0, 8, 1, -30)
+progressBG.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+progressBG.BorderColor3     = Color3.fromRGB(40, 40, 40)
+progressBG.BorderSizePixel  = 1
+progressBG.Parent           = frame
+
+local progressFill = Instance.new("Frame")
+progressFill.Size             = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(58, 127, 212)
+progressFill.BorderSizePixel  = 0
+progressFill.Parent           = progressBG
+
+local progressLabel = Instance.new("TextLabel")
+progressLabel.Size                   = UDim2.new(1, 0, 1, 0)
+progressLabel.BackgroundTransparency = 1
+progressLabel.Text                   = "0.000/0.000 (0ms)"
+progressLabel.TextColor3             = Color3.fromRGB(220, 220, 220)
+progressLabel.TextSize               = 10
+progressLabel.Font                   = Enum.Font.Code
+progressLabel.ZIndex                 = 2
+progressLabel.Parent                 = progressBG
+
+-- Helper: add row to list
+local rowCount = 0
+local rows = {}
+
+local function addRow(id, isNew)
+    if rows[id] then
+        rows[id].BackgroundColor3 = Color3.fromRGB(30, 55, 80)
+        task.delay(0.3, function()
+            if rows[id] then
+                rows[id].BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+            end
+        end)
+        return
+    end
+
+    rowCount += 1
+    local row = Instance.new("Frame")
+    row.Name             = "Row_" .. rowCount
+    row.Size             = UDim2.new(1, 0, 0, 22)
+    row.BackgroundColor3 = isNew and Color3.fromRGB(30, 55, 80) or Color3.fromRGB(18, 18, 18)
+    row.BorderSizePixel  = 0
+    row.LayoutOrder      = rowCount
+    row.Parent           = scrollFrame
+
+    local idText = Instance.new("TextLabel")
+    idText.Size                   = UDim2.new(1, -8, 1, 0)
+    idText.Position               = UDim2.new(0, 6, 0, 0)
+    idText.BackgroundTransparency = 1
+    idText.Text                   = id
+    idText.TextColor3             = Color3.fromRGB(160, 200, 220)
+    idText.TextSize               = 10
+    idText.Font                   = Enum.Font.Code
+    idText.TextXAlignment         = Enum.TextXAlignment.Left
+    idText.TextTruncate           = Enum.TextTruncate.AtEnd
+    idText.Parent                 = row
+
+    rows[id] = row
+
+    if isNew then
+        task.delay(1.0, function()
+            if rows[id] then
+                rows[id].BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+            end
+        end)
+    end
+end
+
+-- Main tracking logic
+local function startTracking(char)
+    rows     = {}
+    rowCount = 0
+
+    for _, child in ipairs(scrollFrame:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local humanoid = char:WaitForChild("Humanoid", 10)
+    if not humanoid then return end
+    local animator = humanoid:WaitForChild("Animator", 10)
+    if not animator then return end
+
+    animator.AnimationPlayed:Connect(function(track)
+        local id = track.Animation and track.Animation.AnimationId or "rbxassetid://unknown"
+        print(string.format("[ANIM PLAY] %s  (%.3fs)", id, track.Length))
+        currentIdLabel.Text = id
+        addRow(id, true)
+    end)
+
+    RunService.Heartbeat:Connect(function()
+        local tracks = animator:GetPlayingAnimationTracks()
+        if #tracks == 0 then
+            progressFill.Size  = UDim2.new(0, 0, 1, 0)
+            progressLabel.Text = "0.000/0.000 (0ms)"
+            return
+        end
+
+        local best = tracks[1]
+        for _, t in ipairs(tracks) do
+            if t.WeightCurrent > best.WeightCurrent then
+                best = t
+            end
+        end
+
+        local pos = best.TimePosition
+        local len = best.Length > 0 and best.Length or 1
+        local pct = pos / len
+
+        progressFill.Size  = UDim2.new(pct, 0, 1, 0)
+        progressLabel.Text = string.format(
+            "%.3f/%.3f (%dms)",
+            pos, len, math.floor(pos * 1000)
+        )
+
+        local id = best.Animation and best.Animation.AnimationId or "rbxassetid://--"
+        currentIdLabel.Text = id
+    end)
+
+    print("[AnimDetector] Tracking started.")
+end
+
+local char = player.Character or player.CharacterAdded:Wait()
+task.wait(0.5)
+startTracking(char)
+
+player.CharacterAdded:Connect(function(newChar)
+    task.wait(0.5)
+    startTracking(newChar)
+end)

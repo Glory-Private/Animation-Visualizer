@@ -1,0 +1,94 @@
+-- ============================================================
+--  AnimationDetector.lua  
+-- ============================================================
+
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+
+local localPlayer    = Players.LocalPlayer
+local character      = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+-- ── 
+local printed = {}
+
+-- ── get Animator  ──────────────────────────────────────────
+local function getAnimator(char)
+    local humanoid = char:WaitForChild("Humanoid", 10)
+    if not humanoid then return nil end
+    return humanoid:WaitForChild("Animator", 10)
+end
+
+-- ── Animation Tracking ────────────────────────────────────
+local function startTracking(char)
+    printed = {}  -- 
+
+    local animator = getAnimator(char)
+    if not animator then
+        warn("[AnimDetector] Animator를 찾을 수 없습니다.")
+        return
+    end
+
+    print("========================================")
+    print("[AnimDetector] ")
+    print("[AnimDetector] :", char.Name)
+    print("========================================")
+
+    
+    animator.AnimationPlayed:Connect(function(track)
+        local id = track.Animation and track.Animation.AnimationId or "unknown"
+
+        
+        print(string.format(
+            "[PLAY]  %-40s  | 길이: %.3fs | 우선순위: %s",
+            id,
+            track.Length,
+            tostring(track.Priority)
+        ))
+
+        
+        if not printed[id] then
+            printed[id] = true
+        end
+
+       
+        track.Stopped:Connect(function()
+            print(string.format("[STOP]  %s", id))
+        end)
+    end)
+
+    
+    local lastDump = 0
+    RunService.Heartbeat:Connect(function()
+        local now = tick()
+        if now - lastDump < 0.5 then return end
+        lastDump = now
+
+        local tracks = animator:GetPlayingAnimationTracks()
+        if #tracks == 0 then return end
+
+        
+        for _, track in ipairs(tracks) do
+            local id = track.Animation and track.Animation.AnimationId or "unknown"
+            local weight = track.WeightCurrent
+            local pos    = track.TimePosition
+            local len    = track.Length
+
+            -- F9 콘솔에서 보기 좋게 포맷
+            print(string.format(
+                "[NOW]   %-40s  | %.3f/%.3fs | weight: %.2f",
+                id, pos, len, weight
+            ))
+        end
+    end)
+end
+
+
+startTracking(character)
+
+localPlayer.CharacterAdded:Connect(function(newChar)
+    task.wait(0.5)  
+    character = newChar
+    startTracking(newChar)
+end)
+
+print("[AnimDetector.pbs_g] ")
